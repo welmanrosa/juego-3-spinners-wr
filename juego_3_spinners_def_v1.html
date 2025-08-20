@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8"/>
+    <title>Juego de las 3 Ruletas Rediseñado</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --accent-color: #00ffcc;
+            --spinner-bg: #f0f0f0;
+            --button-bg: #cccccc;
+            --button-hover: #00ffcc;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Orbitron', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        body.dark-mode {
+            --bg-color: #121212;
+            --text-color: #f0f0f0;
+            --accent-color: #00ffcc;
+            --spinner-bg: #1e1e1e;
+            --button-bg: #333333;
+            --button-hover: #00ffcc;
+        }
+
+        h1, h2 {
+            color: var(--accent-color);
+            text-shadow: 0 0 10px var(--accent-color);
+        }
+
+        .spinner-container {
+            display: none;
+            justify-content: center;
+            gap: 40px;
+            margin: 30px 0;
+        }
+
+        .spinner-wrapper {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background-color: var(--spinner-bg);
+        }
+
+        .winning {
+            border: 5px solid green;
+            transition: border 0.3s ease;
+        }
+
+        .losing {
+            border: 5px solid red;
+            transition: border 0.3s ease;
+        }
+
+        .locked {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .arrow {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 20px solid red;
+        }
+
+        .label {
+            margin-top: 10px;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background: var(--button-bg);
+            color: var(--text-color);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: var(--button-hover);
+            color: #000000;
+        }
+
+        #result, #scoreboard, #levelDescription, #stats, #timer, #attempts {
+            margin-top: 20px;
+            font-size: 18px;
+            color: var(--accent-color);
+        }
+
+        #instructions {
+            font-size: 16px;
+            color: var(--text-color);
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .fade {
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .hidden {
+            opacity: 0;
+        }
+
+        .visible {
+            opacity: 1;
+        }
+
+        select {
+            padding: 8px;
+            border-radius: 6px;
+            background-color: var(--button-bg);
+            color: var(--text-color);
+            border: 1px solid var(--accent-color);
+        }
+
+        #hintText {
+            margin-top: 10px;
+            font-size: 15px;
+            color: var(--text-color);
+        }
+
+        @media (max-width: 600px) {
+            .spinner-wrapper {
+                width: 150px;
+                height: 150px;
+            }
+            .label {
+                font-size: 14px;
+            }
+            button {
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <select id="languageSelector" onchange="changeLanguage()">
+        <option value="es">Español</option>
+        <option value="en">English</option>
+    </select>
+    <h1 id="gameTitle">🎰 Juego de las 3 Ruletas</h1>
+    <button onclick="toggleDarkMode()" aria-label="Alternar modo oscuro">Modo Oscuro</button>
+    <div id="levelSelector">
+        <h2 id="selectLevel">Selecciona el nivel de dificultad</h2>
+        <button onclick="startGame('basic')" aria-label="Iniciar nivel básico">Nivel 1: Básico</button>
+        <button onclick="startGame('intermediate')" aria-label="Iniciar nivel intermedio">Nivel 2: Intermedio</button>
+        <button onclick="startGame('advanced')" aria-label="Iniciar nivel avanzado">Nivel 3: Avanzado</button>
+        <button onclick="startPracticeMode()" aria-label="Iniciar modo práctica">Modo Práctica</button>
+    </div>
+    <div class="fade" id="levelDescription"></div>
+    <div id="instructions"></div>
+    <div class="spinner-container">
+        <div class="spinner-wrapper">
+            <div class="arrow"></div>
+            <canvas height="200" id="spinnerA" width="200" role="button" aria-label="Ruleta A"></canvas>
+            <div class="label">Spinner A</div>
+        </div>
+        <div class="spinner-wrapper">
+            <div class="arrow"></div>
+            <canvas height="200" id="spinnerB" width="200" role="button" aria-label="Ruleta B"></canvas>
+            <div class="label">Spinner B</div>
+        </div>
+        <div class="spinner-wrapper">
+            <div class="arrow"></div>
+            <canvas height="200" id="spinnerC" width="200" role="button" aria-label="Ruleta C"></canvas>
+            <div class="label">Spinner C</div>
+        </div>
+    </div>
+    <button onclick="resetGame()" style="display:none;" aria-label="Reiniciar juego">🔄 Reiniciar Juego</button>
+    <button id="resetToStart" onclick="resetToStart()" style="display:none;" aria-label="Reiniciar juego completo">🧹 Reiniciar Juego Completo</button>
+    <div id="scoreboard"></div>
+    <div id="attempts"></div>
+    <div id="stats"></div>
+    <div id="result"></div>
+    <div id="timer"></div>
+    <div id="reward" style="display:none; margin-top:20px;">
+        <img alt="Premio" src="https://media.giphy.com/media/111ebonMs90YLu/giphy.gif" width="200"/>
+    </div>
+    <audio id="spinSound" src="https://www.soundjay.com/button/sounds/button-16.mp3"></audio>
+    <audio id="winSound" src="https://www.soundjay.com/button/sounds/button-10.mp3"></audio>
+    <script>
+        // Internacionalización
+        const translations = {
+            es: {
+                gameTitle: '🎰 Juego de las 3 Ruletas',
+                selectLevel: 'Selecciona el nivel de dificultad',
+                levelBasic: 'Nivel 1: Básico',
+                levelIntermediate: 'Nivel 2: Intermedio',
+                levelAdvanced: 'Nivel 3: Avanzado',
+                practiceMode: 'Modo Práctica',
+                darkMode: 'Modo Oscuro',
+                resetGame: '🔄 Reiniciar Juego',
+                resetToStart: '🧹 Reiniciar Juego Completo',
+                instructions: 'Selecciona un spinner de los 3, luego el segundo y automáticamente se mostrará el tercero. La suma de los 3 números debe ser 15. Elige combinaciones ganadoras para sumar puntos.',
+                practiceInstructions: 'Experimenta libremente con los tres spinners. Observa cómo cada selección afecta la suma total y aprende qué combinaciones te acercan a 15.',
+                basicHint: 'Prueba combinaciones como 5 en A, 6 en B y 4 en C. También puedes intentar 9 en A, 2 en B y 4 en C. La clave es que la suma total sea 15.',
+                intermediateHint: 'Busca números altos en A (como 5 o 9), combínalos con 2 o 6 en B, y ajusta el valor de C para que la suma total sea 15. Ejemplo: 5 + 6 + 4.',
+                advancedHint: 'Explora combinaciones como 7 en A, 6 en B y 2 en C. También puedes usar 9 en A, 5 en B y 1 en C. Piensa estratégicamente en cómo cada spinner contribuye a la suma de 15.',
+                spinnerSelected: 'Spinner {id} seleccionado: {value}',
+                totalSum: 'Suma total: {total}',
+                winMessage: '🎉 ¡Ganaste! (Combinación favorable)',
+                loseMessage: '😢 Lejos del objetivo (Combinación desfavorable)',
+                closeMessage: '👍 Cerca de ganar',
+                pointsEarned: 'Puntos obtenidos: {points}',
+                favorableCombinations: 'Número de combinaciones favorables (A-B): {count}',
+                gameLocked: 'El juego está bloqueado. Reintenta o avanza al siguiente nivel.',
+                levelCompleted: '✅ Has alcanzado los puntos necesarios para avanzar.',
+                levelFailed: '❌ No alcanzaste los puntos necesarios. Por favor, reintenta el nivel.',
+                allLevelsCompleted: '🎉 ¡Has completado todos los niveles y alcanzado el puntaje necesario para el premio final!',
+                allLevelsNoPoints: '🎉 ¡Has completado todos los niveles! Pero no alcanzaste los 90 puntos necesarios para el premio final.',
+                timeUp: '⏰ Tiempo agotado',
+                scoreboard: 'Intentos: {attempts}/{maxAttempts} | Puntos acumulados en el nivel: {score} | Puntos totales: {totalScore}',
+                attempts: 'Intentos: {attempts}/{maxAttempts}',
+                stats: 'Total de intentos: {attempts}<br>Puntos acumulados en el nivel: {score}<br>Puntos totales: {totalScore}<br>Promedio por intento: {avg}',
+                successfulCombos: 'Combinaciones exitosas: {count}',
+                top5: 'Top 5:',
+                nextLevel: 'Avanzar al siguiente nivel',
+                retryLevel: 'Reintentar nivel'
+            },
+            en: {
+                gameTitle: '🎰 3 Spinners Game',
+                selectLevel: 'Select difficulty level',
+                levelBasic: 'Level 1: Basic',
+                levelIntermediate: 'Level 2: Intermediate',
+                levelAdvanced: 'Level 3: Advanced',
+                practiceMode: 'Practice Mode',
+                darkMode: 'Dark Mode',
+                resetGame: '🔄 Reset Game',
+                resetToStart: '🧹 Reset Entire Game',
+                instructions: 'Select one of the 3 spinners, then the second, and the third will be shown automatically. The sum of the 3 numbers must be 15. Choose winning combinations to earn points.',
+                practiceInstructions: 'Experiment freely with the three spinners. Observe how each selection affects the total sum and learn which combinations get you closer to 15.',
+                basicHint: 'Try combinations like 5 on A, 6 on B, and 4 on C. You can also try 9 on A, 2 on B, and 4 on C. The key is that the total sum must be 15.',
+                intermediateHint: 'Look for high numbers on A (like 5 or 9), combine them with 2 or 6 on B, and adjust C to make the total sum 15. Example: 5 + 6 + 4.',
+                advancedHint: 'Explore combinations like 7 on A, 6 on B, and 2 on C. You can also use 9 on A, 5 on B, and 1 on C. Think strategically about how each spinner contributes to the sum of 15.',
+                spinnerSelected: 'Spinner {id} selected: {value}',
+                totalSum: 'Total sum: {total}',
+                winMessage: '🎉 You won! (Favorable combination)',
+                loseMessage: '😢 Far from the goal (Unfavorable combination)',
+                closeMessage: '👍 Close to winning',
+                pointsEarned: 'Points earned: {points}',
+                favorableCombinations: 'Number of favorable combinations (A-B): {count}',
+                gameLocked: 'The game is locked. Retry or proceed to the next level.',
+                levelCompleted: '✅ You have reached the points needed to advance.',
+                levelFailed: '❌ You did not reach the required points. Please retry the level.',
+                allLevelsCompleted: '🎉 You have completed all levels and reached the required score for the final prize!',
+                allLevelsNoPoints: '🎉 You have completed all levels! But you did not reach the 90 points needed for the final prize.',
+                timeUp: '⏰ Time’s up',
+                scoreboard: 'Attempts: {attempts}/{maxAttempts} | Points accumulated in level: {score} | Total points: {totalScore}',
+                attempts: 'Attempts: {attempts}/{maxAttempts}',
+                stats: 'Total attempts: {attempts}<br>Points accumulated in level: {score}<br>Total points: {totalScore}<br>Average per attempt: {avg}',
+                successfulCombos: 'Successful combinations: {count}',
+                top5: 'Top 5:',
+                nextLevel: 'Advance to next level',
+                retryLevel: 'Retry level'
+            }
+        };
+
+        let currentLanguage = localStorage.getItem('language') || 'es';
+
+        function updateLanguage() {
+            const t = translations[currentLanguage];
+            document.getElementById('gameTitle').innerText = t.gameTitle;
+            document.getElementById('selectLevel').innerText = t.selectLevel;
+            document.querySelector('button[onclick="toggleDarkMode()"]').innerText = t.darkMode;
+            document.querySelector('button[onclick="startGame(\'basic\')]').innerText = t.levelBasic;
+            document.querySelector('button[onclick="startGame(\'intermediate\')]').innerText = t.levelIntermediate;
+            document.querySelector('button[onclick="startGame(\'advanced\')]').innerText = t.levelAdvanced;
+            document.querySelector('button[onclick="startPracticeMode()"]').innerText = t.practiceMode;
+            document.querySelector('button[onclick="resetGame()"]').innerText = t.resetGame;
+            document.querySelector('button[onclick="resetToStart()"]').innerText = t.resetToStart;
+            if (currentLevel) {
+                showHint(currentLevel);
+                document.getElementById('scoreboard').innerHTML = t.scoreboard
+                    .replace('{attempts}', attempts)
+                    .replace('{maxAttempts}', currentLevel === 'practice' ? '∞' : maxAttempts)
+                    .replace('{score}', score)
+                    .replace('{totalScore}', totalScore);
+                document.getElementById('attempts').innerHTML = t.attempts
+                    .replace('{attempts}', attempts)
+                    .replace('{maxAttempts}', currentLevel === 'practice' ? '∞' : maxAttempts);
+            }
+        }
+
+        function changeLanguage() {
+            currentLanguage = document.getElementById('languageSelector').value;
+            localStorage.setItem('language', currentLanguage);
+            updateLanguage();
+        }
+
+        let tiempoInicio;
+        let temporizadorIntervalo;
+        let tiempoAcumuladoPorNivel = {};
+        let nivelActual = 1;
+        let intentosPorNivel = {};
+        let puntajePorNivel = {};
+        let timerInterval;
+        let timeLeft;
+        let score = 0;
+        let totalScore = 0;
+        let attempts = 0;
+        let maxAttempts;
+        let selected = [];
+        let spinnerOrder = [];
+        let currentLevel = null;
+        let successfulCombos = 0;
+        let combinations = {};
+        let gameLocked = false;
+        let animationFrameId;
+
+        const spinners = {
+            A: { canvas: document.getElementById('spinnerA'), values: [1, 5, 9], colors: ['#f39c12', '#e74c3c', '#2ecc71'], angle: 0, spinning: true },
+            B: { canvas: document.getElementById('spinnerB'), values: [2, 6, 7], colors: ['#9b59b6', '#3498db', '#1abc9c'], angle: 0, spinning: true },
+            C: { canvas: document.getElementById('spinnerC'), values: [4, 8, 3], colors: ['#34495e', '#95a5a6', '#16a085'], angle: 0, spinning: true }
+        };
+
+        function configureSpinners(level) {
+            if (level === 'basic') {
+                spinners.A.values = [1, 5, 9];
+                spinners.A.colors = ['#f39c12', '#e74c3c', '#2ecc71'];
+                spinners.B.values = [2, 6, 7];
+                spinners.B.colors = ['#9b59b6', '#3498db', '#1abc9c'];
+                spinners.C.values = [4, 8, 3];
+                spinners.C.colors = ['#34495e', '#95a5a6', '#16a085'];
+            } else if (level === 'intermediate') {
+                spinners.A.values = [1, 5, 9, 3];
+                spinners.A.colors = ['#f39c12', '#e74c3c', '#2ecc71', '#d35400'];
+                spinners.B.values = [2, 6, 7, 4];
+                spinners.B.colors = ['#9b59b6', '#3498db', '#1abc9c', '#2980b9'];
+                spinners.C.values = [4, 8, 3, 5];
+                spinners.C.colors = ['#34495e', '#95a5a6', '#16a085', '#27ae60'];
+            } else if (level === 'advanced') {
+                spinners.A.values = [1, 5, 9, 3, 7];
+                spinners.A.colors = ['#f39c12', '#e74c3c', '#2ecc71', '#d35400', '#27ae60'];
+                spinners.B.values = [2, 6, 7, 4, 8];
+                spinners.B.colors = ['#9b59b6', '#3498db', '#1abc9c', '#2980b9', '#34495e'];
+                spinners.C.values = [4, 8, 3, 5, 6];
+                spinners.C.colors = ['#34495e', '#95a5a6', '#16a085', '#27ae60', '#8e44ad'];
+            }
+            combinations = {
+                'A-B': generateCombinations(spinners.A, spinners.B, 15),
+                'A-C': generateCombinations(spinners.A, spinners.C, 15),
+                'B-A': generateCombinations(spinners.B, spinners.A, 15),
+                'B-C': generateCombinations(spinners.B, spinners.C, 15),
+                'C-A': generateCombinations(spinners.C, spinners.A, 15),
+                'C-B': generateCombinations(spinners.C, spinners.B, 15)
+            };
+        }
+
+        function generateCombinations(spinner1, spinner2, targetSum) {
+            let win = [], lose = [];
+            spinner1.values.forEach(a => {
+                spinner2.values.forEach(b => {
+                    const thirdSpinner = spinners[['A', 'B', 'C'].find(s => s !== spinner1.canvas.id.replace('spinner', '') && s !== spinner2.canvas.id.replace('spinner', ''))];
+                    const needed = targetSum - (a + b);
+                    if (thirdSpinner.values.includes(needed)) {
+                        win.push([a, b]);
+                    } else {
+                        lose.push([a, b]);
+                    }
+                });
+            });
+            return { win, lose };
+        }
+
+        
+        function showHint(level) {
+    const t = translations[currentLanguage];
+    let hint = level === 'basic' ? t.basicHint :
+               level === 'intermediate' ? t.intermediateHint :
+               level === 'advanced' ? t.advancedHint : t.practiceInstructions;
+
+    document.getElementById('instructions').innerHTML = `
+        ${level === 'practice' ? t.practiceInstructions : t.instructions}<br><strong>Pista:</strong> ${hint}
+    `;
+}
+    function iniciarTemporizador() {
+            detenerTemporizador();
+            tiempoInicio = Date.now();
+            temporizadorIntervalo = setInterval(() => {
+                const tiempoActual = Date.now();
+                const tiempoTranscurrido = Math.floor((tiempoActual -expectations tiempoInicio) / 1000);
+                document.getElementById("timer").textContent = `Tiempo: ${tiempoTranscurrido}s`;
+            }, 1000);
+        }
+
+        function detenerTemporizador() {
+            if (temporizadorIntervalo) {
+                clearInterval(temporizadorIntervalo);
+                const tiempoFinal = Date.now();
+                const tiempoTranscurrido = Math.floor((tiempoFinal - tiempoInicio) / 1000);
+                if (!tiempoAcumuladoPorNivel[nivelActual]) {
+                    tiempoAcumuladoPorNivel[nivelActual] = 0;
+                }
+                tiempoAcumuladoPorNivel[nivelActual] += tiempoTranscurrido;
+            }
+        }
+
+        function drawSpinner(spinner) {
+            const ctx = spinner.canvas.getContext('2d');
+            const values = spinner.values;
+            const colors = spinner.colors;
+            const radius = spinner.canvas.width / 2;
+            const sliceAngle = 2 * Math.PI / values.length;
+            let startAngle = spinner.angle;
+            ctx.clearRect(0, 0, spinner.canvas.width, spinner.canvas.height);
+            for (let i = 0; i < values.length; i++) {
+                ctx.beginPath();
+                ctx.moveTo(radius, radius);
+                ctx.arc(radius, radius, radius, startAngle, startAngle + sliceAngle);
+                ctx.fillStyle = colors[i];
+                ctx.fill();
+                ctx.stroke();
+                ctx.save();
+                ctx.translate(radius, radius);
+                ctx.rotate(startAngle + sliceAngle / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 16px sans-serif";
+                ctx.fillText(values[i], radius - 10, 5);
+                ctx.restore();
+                startAngle += sliceAngle;
+            }
+        }
+
+        function animateSpinners() {
+            for (let key in spinners) {
+                if (spinners[key].spinning) {
+                    spinners[key].angle += 0.8;
+                    drawSpinner(spinners[key]);
+                }
+            }
+            animationFrameId = requestAnimationFrame(animateSpinners);
+        }
+
+        function stopAnimation() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+        }
+
+        function getSelectedValue(spinner) {
+            const sliceAngle = 2 * Math.PI / spinner.values.length;
+            const angle = spinner.angle % (2 * Math.PI);
+            const pointerAngle = 3 * Math.PI / 2;
+            const relativeAngle = (pointerAngle - angle + 2 * Math.PI) % (2 * Math.PI);
+            const index = Math.floor(relativeAngle / sliceAngle);
+            return spinner.values[index];
+        }
+
+        function spin(spinnerId, callback) {
+            try {
+                document.getElementById('spinSound').play();
+            } catch (e) {
+                console.warn("Error al reproducir sonido:", e);
+            }
+            const spinner = spinners[spinnerId];
+            spinner.spinning = false;
+            const value = getSelectedValue(spinner);
+            callback(value);
+        }
+
+        function resetGame() {
+            selected = [];
+            spinnerOrder = [];
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('reward').style.display = 'none';
+            for (let key in spinners) {
+                spinners[key].spinning = true;
+                spinners[key].angle = 0;
+                spinners[key].canvas.classList.remove('winning', 'losing', 'locked');
+            }
+            clearInterval(timerInterval);
+            document.getElementById('timer').innerText = '';
+            gameLocked = false;
+            if (currentLevel !== 'practice') {
+                startTimer();
+            }
+        }
+
+        function handleClick(spinnerId) {
+            if (gameLocked || (currentLevel !== 'practice' && attempts >= maxAttempts) || spinnerOrder.includes(spinnerId) || spinnerOrder.length >= 2) return;
+            spinnerOrder.push(spinnerId);
+            spin(spinnerId, value => {
+                selected.push({ id: spinnerId, value: value });
+                updateResult();
+                if (spinnerOrder.length === 2) {
+                    const remaining = ['A', 'B', 'C'].filter(s => !spinnerOrder.includes(s))[0];
+                    spinnerOrder.push(remaining);
+                    spin(remaining, value3 => {
+                        selected.push({ id: remaining, value: value3 });
+                        updateResult(true);
+                    });
+                }
+            });
+        }
+
+        function updateResult(final = false) {
+            const t = translations[currentLanguage];
+            let html = '';
+            selected.forEach(sel => {
+                html += t.spinnerSelected.replace('{id}', sel.id).replace('{value}', sel.value) + '<br>';
+            });
+            if (final) {
+                const total = selected.reduce((sum, s) => sum + s.value, 0);
+                html += t.totalSum.replace('{total}', total) + '<br>';
+                let points = 0;
+                const key = `${selected[0].id}-${selected[1].id}`;
+                const values = [selected[0].value, selected[1].value];
+                document.getElementById(`spinner${selected[0].id}`).classList.remove('winning', 'losing');
+                document.getElementById(`spinner${selected[1].id}`).classList.remove('winning', 'losing');
+                if (combinations[key] && combinations[key].win.some(([a, b]) => a === values[0] && b === values[1])) {
+                    html += t.winMessage + '<br>';
+                    points = total + 10;
+                    successfulCombos++;
+                    document.getElementById(`spinner${selected[0].id}`).classList.add('winning');
+                    document.getElementById(`spinner${selected[1].id}`).classList.add('winning');
+                    try {
+                        document.getElementById('winSound').play();
+                    } catch (e) {
+                        console.warn("Error al reproducir sonido:", e);
+                    }
+                } else if (combinations[key] && combinations[key].lose.some(([a, b]) => a === values[0] && b === values[1])) {
+                    html += t.loseMessage + '<br>';
+                    points = 0;
+                    document.getElementById(`spinner${selected[0].id}`).classList.add('losing');
+                    document.getElementById(`spinner${selected[1].id}`).classList.add('losing');
+                } else {
+                    html += t.closeMessage + '<br>';
+                    points = total;
+                }
+                score += points;
+                totalScore += points;
+                attempts++;
+                intentosPorNivel[nivelActual] = attempts;
+                puntajePorNivel[nivelActual] = score;
+                html += t.pointsEarned.replace('{points}', points) + '<br>';
+                if (key === 'A-B' && combinations['A-B']) {
+                    html += `<br><strong>${t.favorableCombinations.replace('{count}', combinations['A-B'].win.length)}</strong><br>`;
+                }
+                document.getElementById('scoreboard').innerHTML = t.scoreboard
+                    .replace('{attempts}', attempts)
+                    .replace('{maxAttempts}', currentLevel === 'practice' ? '∞' : maxAttempts)
+                    .replace('{score}', score)
+                    .replace('{totalScore}', totalScore);
+                document.getElementById('attempts').innerHTML = t.attempts
+                    .replace('{attempts}', attempts)
+                    .replace('{maxAttempts}', currentLevel === 'practice' ? '∞' : maxAttempts);
+                if (currentLevel === 'practice') {
+                    document.getElementById('stats').innerHTML = t.successfulCombos.replace('{count}', successfulCombos);
+                }
+                if (currentLevel !== 'practice' && attempts >= maxAttempts) {
+                    gameLocked = true;
+                    detenerTemporizador();
+                    clearInterval(timerInterval);
+                    for (let key in spinners) {
+                        spinners[key].canvas.classList.add('locked');
+                    }
+                    document.getElementById('stats').innerHTML = t.stats
+                        .replace('{attempts}', attempts)
+                        .replace('{score}', score)
+                        .replace('{totalScore}', totalScore)
+                        .replace('{avg}', (attempts > 0 ? score / attempts : 0).toFixed(2));
+                    if (score >= 30) {
+                        html += `<br>${t.levelCompleted}<br><button onclick="nextLevel()">${t.nextLevel}</button>`;
+                        document.getElementById('reward').style.display = 'block';
+                        updateRanking();
+                    } else {
+                        html += `<br>${t.levelFailed}<br><button onclick="retryLevel()">${t.retryLevel}</button>`;
+                    }
+                    html += `<br><strong>${t.gameLocked}</strong>`;
+                    saveProgress();
+                }
+                document.getElementById('result').innerHTML = html;
+            }
+        }
+
+        function startGame(level) {
+            currentLevel = level;
+            nivelActual = level === 'basic' ? 1 : level === 'intermediate' ? 2 : 3;
+            maxAttempts = level === 'basic' ? 3 : level === 'intermediate' ? 4 : 5;
+            configureSpinners(level);
+            document.getElementById('levelSelector').style.display = 'none';
+            document.querySelector('.spinner-container').style.display = 'flex';
+            document.querySelector('button[onclick="resetGame()"]').style.display = 'inline-block';
+            document.getElementById('resetToStart').style.display = 'inline-block';
+            document.getElementById('instructions').style.display = 'block';
+            document.getElementById('levelDescription').innerText = `${translations[currentLanguage].selectLevel}: ${level}`;
+            document.getElementById('levelDescription').classList.add('visible');
+            showHint(level);
+            score = 0;
+            attempts = 0;
+            intentosPorNivel[nivelActual] = 0;
+            puntajePorNivel[nivelActual] = 0;
+            successfulCombos = 0;
+            gameLocked = false;
+            resetGame();
+            iniciarTemporizador();
+            document.getElementById('scoreboard').innerHTML = translations[currentLanguage].scoreboard
+                .replace('{attempts}', attempts)
+                .replace('{maxAttempts}', maxAttempts)
+                .replace('{score}', score)
+                .replace('{totalScore}', totalScore);
+            document.getElementById('attempts').innerHTML = translations[currentLanguage].attempts
+                .replace('{attempts}', attempts)
+                .replace('{maxAttempts}', maxAttempts);
+            document.getElementById('stats').innerHTML = '';
+            animateSpinners();
+        }
+
+        function startPracticeMode() {
+            currentLevel = 'practice';
+            nivelActual = 0;
+            maxAttempts = Infinity;
+            configureSpinners('intermediate');
+            document.getElementById('levelSelector').style.display = 'none';
+            document.querySelector('.spinner-container').style.display = 'flex';
+            document.querySelector('button[onclick="resetGame()"]').style.display = 'inline-block';
+            document.getElementById('resetToStart').style.display = 'inline-block';
+            document.getElementById('instructions').style.display = 'block';
+            document.getElementById('levelDescription').innerText = translations[currentLanguage].practiceMode;
+            document.getElementById('levelDescription').classList.add('visible');
+            showHint('practice');
+            score = 0;
+            attempts = 0;
+            successfulCombos = 0;
+            gameLocked = false;
+            resetGame();
+            document.getElementById('scoreboard').innerHTML = translations[currentLanguage].scoreboard
+                .replace('{attempts}', attempts)
+                .replace('{maxAttempts}', '∞')
+                .replace('{score}', score)
+                .replace('{totalScore}', totalScore);
+            document.getElementById('attempts').innerHTML = translations[currentLanguage].attempts
+                .replace('{attempts}', attempts)
+                .replace('{maxAttempts}', '∞');
+            document.getElementById('stats').innerHTML = translations[currentLanguage].successfulCombos.replace('{count}', successfulCombos);
+            document.getElementById('timer').innerText = '';
+            animateSpinners();
+        }
+
+        function nextLevel() {
+            if (currentLevel === 'basic') {
+                startGame('intermediate');
+            } else if (currentLevel === 'intermediate') {
+                startGame('advanced');
+            } else {
+                if (totalScore >= 90) {
+                    alert(translations[currentLanguage].allLevelsCompleted);
+                } else {
+                    alert(translations[currentLanguage].allLevelsNoPoints);
+                }
+                resetToStart();
+            }
+        }
+
+        function retryLevel() {
+            score = 0;
+            attempts = 0;
+            intentosPorNivel[nivelActual] = 0;
+            puntajePorNivel[nivelActual] = 0;
+            successfulCombos = 0;
+            resetGame();
+            document.getElementById('scoreboard').innerHTML = translations[currentLanguage].scoreboard
+                .replace('{attempts}', attempts)
+                .replace('{maxAttempts}', maxAttempts)
+                .replace('{score}', score)
+                .replace('{totalScore}', totalScore);
+            document.getElementById('attempts').innerHTML = translations[currentLanguage].attempts
+                .replace('{attempts}', attempts)
+                .replace('{maxAttempts}', maxAttempts);
+            document.getElementById('stats').innerHTML = '';
+            document.getElementById('result').innerHTML = '';
+            iniciarTemporizador();
+        }
+
+        function resetToStart() {
+            currentLevel = null;
+            nivelActual = 1;
+            score = 0;
+            totalScore = 0;
+            attempts = 0;
+            intentosPorNivel = {};
+            puntajePorNivel = {};
+            tiempoAcumuladoPorNivel = {};
+            successfulCombos = 0;
+            document.getElementById('levelSelector').style.display = 'block';
+            document.querySelector('.spinner-container').style.display = 'none';
+            document.querySelector('button[onclick="resetGame()"]').style.display = 'none';
+            document.getElementById('resetToStart').style.display = 'none';
+            document.getElementById('instructions').style.display = 'none';
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('stats').innerHTML = '';
+            document.getElementById('attempts').innerHTML = translations[currentLanguage].attempts
+                .replace('{attempts}', 0)
+                .replace('{maxAttempts}', '0');
+            document.getElementById('scoreboard').innerHTML = translations[currentLanguage].scoreboard
+                .replace('{attempts}', 0)
+                .replace('{maxAttempts}', '0')
+                .replace('{score}', 0)
+                .replace('{totalScore}', 0);
+            document.getElementById('reward').style.display = 'none';
+            stopAnimation();
+            try {
+                localStorage.clear();
+            } catch (e) {
+                console.warn("Error al limpiar localStorage:", e);
+            }
+        }
+
+        function toggleDarkMode() {
+            const body = document.body;
+            body.classList.toggle('dark-mode');
+            const isDarkMode = body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode ? 'enabled' : 'disabled');
+        }
+
+        function loadDarkMode() {
+            const darkMode = localStorage.getItem('darkMode');
+            if (darkMode === 'enabled') {
+                document.body.classList.add('dark-mode');
+            }
+        }
+
+        function startTimer() {
+            timeLeft = currentLevel === 'basic' ? 30 : currentLevel === 'intermediate' ? 40 : 50;
+            document.getElementById('timer').innerText = `Tiempo restante: ${timeLeft}s`;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').innerText = `Tiempo restante: ${timeLeft}s`;
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    alert(translations[currentLanguage].timeUp);
+                    retryLevel();
+                }
+            }, 1000);
+        }
+
+        function saveProgress() {
+            try {
+                localStorage.setItem('level', currentLevel);
+                localStorage.setItem('score', score);
+                localStorage.setItem('totalScore', totalScore);
+                localStorage.setItem('nivelActual', nivelActual);
+                localStorage.setItem('intentosPorLevel', JSON.stringify(intentosPorNivel));
+                localStorage.setItem('puntajePorNivel', JSON.stringify(puntajePorNivel));
+            } catch (e) {
+                console.warn("Error al guardar progreso:", e);
+            }
+        }
+
+        function loadProgress() {
+            try {
+                const level = localStorage.getItem('level');
+                if (level) {
+                    startGame(level);
+                    score = parseInt(localStorage.getItem('score') || '0');
+                    totalScore = parseInt(localStorage.getItem('totalScore') || '0');
+                    nivelActual = parseInt(localStorage.getItem('nivelActual') || '1');
+                    intentosPorNivel = JSON.parse(localStorage.getItem('intentosPorNivel') || '{}');
+                    puntajePorNivel = JSON.parse(localStorage.getItem('puntajePorNivel') || '{}');
+                    attempts = intentosPorNivel[nivelActual] || 0;
+                    document.getElementById('scoreboard').innerHTML = translations[currentLanguage].scoreboard
+                        .replace('{attempts}', attempts)
+                        .replace('{maxAttempts}', maxAttempts)
+                        .replace('{score}', score)
+                        .replace('{totalScore}', totalScore);
+                    document.getElementById('attempts').innerHTML = translations[currentLanguage].attempts
+                        .replace('{attempts}', attempts)
+                        .replace('{maxAttempts}', maxAttempts);
+                }
+            } catch (e) {
+                console.warn("Error al cargar progreso:", e);
+            }
+        }
+
+        function updateRanking() {
+            try {
+                let rankings = JSON.parse(localStorage.getItem('rankings') || '[]');
+                if (typeof totalScore === 'number' && !isNaN(totalScore)) {
+                    rankings.push(totalScore);
+                    rankings.sort((a, b) => b - a);
+                    rankings = rankings.slice(0, 5);
+                    localStorage.setItem('rankings', JSON.stringify(rankings));
+                    document.getElementById('stats').innerHTML += `<br><strong>${translations[currentLanguage].top5}</strong><br>${rankings.join('<br>')}`;
+                }
+            } catch (e) {
+                console.warn("Error al actualizar ranking:", e);
+            }
+        }
+
+        for (let key in spinners) {
+            spinners[key].canvas.addEventListener('click', () => handleClick(key));
+        }
+
+        document.getElementById('scoreboard').innerHTML = translations[currentLanguage].scoreboard
+            .replace('{attempts}', 0)
+            .replace('{maxAttempts}', '0')
+            .replace('{score}', 0)
+            .replace('{totalScore}', 0);
+        document.getElementById('attempts').innerHTML = translations[currentLanguage].attempts
+            .replace('{attempts}', 0)
+            .replace('{maxAttempts}', '0');
+        document.getElementById('stats').innerHTML = '';
+        document.getElementById('result').innerHTML = '';
+        document.getElementById('timer').innerText = '';
+        document.getElementById('reward').style.display = 'none';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDarkMode();
+            loadProgress();
+            updateLanguage();
+            document.getElementById('languageSelector').value = currentLanguage;
+        });
+
+        animateSpinners();
+    </script>
+</body>
+</html>
