@@ -1,0 +1,543 @@
+let tiempoInicio;
+let temporizadorIntervalo;
+let tiempoAcumuladoPorNivel = {};
+let nivelActual = 1;
+let intentosPorNivel = {};
+let puntajePorNivel = {};
+let timerInterval;
+let timeLeft;
+let score = 0;
+let totalScore = 0;
+let attempts = 0;
+let maxAttempts;
+let selected = [];
+let spinnerOrder = [];
+let currentLevel = null;
+let combinations = {};
+let gameLocked = false;
+let audioEnabled = false; // Estado del audio
+const CONFETTI_SCORE_THRESHOLD = 144; // 80% de 180 (máximo posible: 3 niveles × 60 puntos)
+
+// Lista de todos los audios
+const audios = {
+    spinSound: document.getElementById('spinSound'),
+    winSound: document.getElementById('winSound'),
+    menuMusic: document.getElementById('menuMusic'),
+    basicMusic: document.getElementById('basicMusic'),
+    intermediateMusic: document.getElementById('intermediateMusic'),
+    advancedMusic: document.getElementById('advancedMusic'),
+    practiceMusic: document.getElementById('practiceMusic')
+};
+
+// Limpiar localStorage al cargar la página para reiniciar todo a cero
+localStorage.clear();
+
+const spinners = {
+    A: { canvas: document.getElementById('spinnerA'), values: [1, 5, 9], colors: ['#f39c12', '#e74c3c', '#2ecc71'], angle: 0, spinning: true },
+    B: { canvas: document.getElementById('spinnerB'), values: [2, 6, 7], colors: ['#9b59b6', '#3498db', '#1abc9c'], angle: 0, spinning: true },
+    C: { canvas: document.getElementById('spinnerC'), values: [4, 8, 3], colors: ['#34495e', '#95a5a6', '#16a085'], angle: 0, spinning: true }
+};
+
+// Verificar carga de audios al iniciar (sin reproducir)
+function checkAudioFiles() {
+    for (let id in audios) {
+        const audio = audios[id];
+        audio.addEventListener('error', () => {
+            console.error(`Error al cargar el audio ${id}: ${audio.src}`);
+        });
+        audio.addEventListener('loadeddata', () => {
+            console.log(`Audio ${id} cargado correctamente: ${audio.src}`);
+        });
+        audio.load();
+        console.log(`Intentando cargar ${id}: ${audio.src}`);
+    }
+}
+
+// Función para detener todas las músicas
+function stopAllMusic() {
+    try {
+        for (let id in audios) {
+            const audio = audios[id];
+            audio.pause();
+            audio.currentTime = 0;
+            console.log(`Música ${id} detenida`);
+        }
+    } catch (e) {
+        console.warn("Error al detener audios:", e);
+    }
+}
+
+// Función para reproducir un audio específico
+function playAudio(audioId) {
+    if (audioEnabled && audios[audioId]) {
+        try {
+            const audio = audios[audioId];
+            audio.volume = audioId.includes('Music') ? (audioId === 'menuMusic' ? 0.3 : 0.5) : 1.0;
+            audio.play().then(() => {
+                console.log(`Reproduciendo ${audioId}`);
+            }).catch(e => {
+                console.warn(`Error al reproducir ${audioId}:`, e);
+            });
+        } catch (e) {
+            console.warn(`Error general al reproducir ${audioId}:`, e);
+        }
+    } else if (!audios[audioId]) {
+        console.error(`Audio ${audioId} no encontrado`);
+    }
+}
+
+// Función para activar/desactivar audio
+function toggleAudio() {
+    audioEnabled = !audioEnabled;
+    const audioButton = document.querySelector('button[onclick="toggleAudio()"]');
+    audioButton.textContent = audioEnabled ? '🔇 Silenciar Sonido' : '🔊 Activar Sonido';
+    if (audioEnabled) {
+        const musicId = currentLevel === null ? 'menuMusic' :
+                        currentLevel === 'basic' ? 'basicMusic' :
+                        currentLevel === 'intermediate' ? 'intermediateMusic' :
+                        currentLevel === 'advanced' ? 'advancedMusic' : 'practiceMusic';
+        playAudio(musicId);
+        audios.spinSound.muted = false;
+        audios.winSound.muted = false;
+    } else {
+        stopAllMusic();
+        audios.spinSound.muted = true;
+        audios.winSound.muted = true;
+    }
+}
+
+function configureSpinners(level) {
+    if (level === 'basic') {
+        spinners.A.values = [1, 5, 9];
+        spinners.A.colors = ['#f39c12', '#e74c3c', '#2ecc71'];
+        spinners.B.values = [2, 6, 7];
+        spinners.B.colors = ['#9b59b6', '#3498db', '#1abc9c'];
+        spinners.C.values = [4, 8, 3];
+        spinners.C.colors = ['#34495e', '#95a5a6', '#16a085'];
+        combinations = {
+            'A-B': { win: [[5,2], [9,2], [9,6]], lose: [[1,2], [1,6], [1,7]] },
+            'A-C': { win: [[5,3], [9,3], [9,4]], lose: [[1,3], [1,4], [1,8]] },
+            'B-A': { win: [[2,5], [6,5], [7,5]], lose: [[2,1], [6,1], [7,1]] },
+            'B-C': { win: [[6,3], [6,4], [7,3]], lose: [[2,3], [2,4], [2,8]] },
+            'C-A': { win: [[3,5], [4,5], [8,5]], lose: [[3,9], [4,9], [8,9]] },
+            'C-B': { win: [[3,2], [4,2], [8,2]], lose: [[3,6], [3,7], [4,7]] }
+        };
+    } else if (level === 'intermediate') {
+        spinners.A.values = [1, 5, 9, 3];
+        spinners.A.colors = ['#f39c12', '#e74c3c', '#2ecc71', '#d35400'];
+        spinners.B.values = [2, 6, 7, 4];
+        spinners.B.colors = ['#9b59b6', '#3498db', '#1abc9c', '#2980b9'];
+        spinners.C.values = [4, 8, 3, 5];
+        spinners.C.colors = ['#34495e', '#95a5a6', '#16a085', '#27ae60'];
+        combinations = {
+            'A-B': { win: [[5,2], [9,2], [9,6], [9,7], [3,2]], lose: [[1,2], [1,6], [1,7], [3,4], [5,4]] },
+            'A-C': { win: [[5,3], [5,4], [9,3], [9,4], [3,4]], lose: [[1,3], [1,4], [1,8], [1,5], [3,8]] },
+            'B-A': { win: [[2,5], [6,5], [7,5], [6,1], [4,5]], lose: [[2,1], [2,9], [4,1], [4,3], [6,9]] },
+            'B-C': { win: [[6,3], [6,4], [7,3], [7,4], [2,4]], lose: [[2,3], [2,8], [2,5], [4,8], [6,8]] },
+            'C-A': { win: [[3,5], [4,5], [8,5], [3,1], [4,1]], lose: [[3,9], [4,9], [8,9], [5,3], [5,9]] },
+            'C-B': { win: [[3,2], [4,2], [8,2], [8,6], [4,6]], lose: [[3,6], [3,7], [4,7], [5,2], [5,7]] }
+        };
+    } else if (level === 'advanced') {
+        spinners.A.values = [1, 5, 9, 3, 7];
+        spinners.A.colors = ['#f39c12', '#e74c3c', '#2ecc71', '#d35400', '#27ae60'];
+        spinners.B.values = [2, 6, 7, 4, 8];
+        spinners.B.colors = ['#9b59b6', '#3498db', '#1abc9c', '#2980b9', '#34495e'];
+        spinners.C.values = [4, 8, 3, 5, 6];
+        spinners.C.colors = ['#34495e', '#95a5a6', '#16a085', '#27ae60', '#8e44ad'];
+        combinations = {
+            'A-B': { win: [[5,2], [9,2], [9,6], [9,7], [3,2], [7,2], [7,6], [5,7]], lose: [[1,2], [1,6], [1,7], [1,4], [1,8], [3,4], [3,8], [5,8]] },
+            'A-C': { win: [[5,3], [5,4], [9,3], [9,4], [9,8], [3,4], [7,3], [7,4]], lose: [[1,3], [1,4], [1,8], [1,5], [1,6], [3,8], [5,5], [7,8]] },
+            'B-A': { win: [[2,5], [6,5], [7,5], [6,1], [7,1], [4,5], [8,5], [8,1]], lose: [[2,1], [2,9], [4,1], [4,3], [6,9], [7,9], [8,9], [8,3]] },
+            'B-C': { win: [[6,3], [6,4], [7,3], [7,4], [2,4], [4,3], [8,4], [8,3]], lose: [[2,3], [2,8], [2,5], [2,6], [4,8], [6,8], [7,8], [8,8]] },
+            'C-A': { win: [[3,5], [4,5], [8,5], [3,1], [4,1], [8,1], [5,5], [6,5]], lose: [[3,9], [4,9], [8,9], [5,3], [5,9], [6,3], [6,9], [6,1]] },
+            'C-B': { win: [[3,2], [4,2], [8,2], [8,6], [8,7], [4,6], [5,2], [6,2]], lose: [[3,6], [3,7], [4,7], [5,7], [6,7], [6,8], [5,4], [4,8]] }
+        };
+    }
+}
+
+function showHint(level) {
+    let hint = '';
+    if (level === 'basic') {
+        hint = 'Prueba combinaciones como 5 en A, 2 en B y 8 en C, o 9 en A, 2 en B y 4 en C. La suma total debe ser 15.';
+    } else if (level === 'intermediate') {
+        hint = 'Busca números altos en A (como 5 o 9), combínalos con 2 o 6 en B, y ajusta C para sumar 15. Ejemplo: 5 + 6 + 4.';
+    } else if (level === 'advanced') {
+        hint = 'Explora combinaciones como 7 en A, 6 en B y 2 en C, o 9 en A, 2 en B y 4 en C. Piensa estratégicamente para sumar 15.';
+    } else {
+        hint = 'Experimenta libremente con los tres spinners. Observa cómo cada selección afecta la suma total.';
+    }
+    document.getElementById('instructions').innerHTML = `
+        Selecciona un spinner de los 3, luego el segundo y automáticamente se mostrará el tercero.
+        Elige combinaciones ganadoras para sumar puntos.<br><strong>Pista:</strong> ${hint}
+    `;
+}
+
+function iniciarTemporizador() {
+    detenerTemporizador();
+    tiempoInicio = Date.now();
+    temporizadorIntervalo = setInterval(() => {
+        const tiempoActual = Date.now();
+        const tiempoTranscurrido = Math.floor((tiempoActual - tiempoInicio) / 1000);
+        document.getElementById("timer").textContent = `Tiempo: ${tiempoTranscurrido}s`;
+    }, 1000);
+}
+
+function detenerTemporizador() {
+    if (temporizadorIntervalo) {
+        clearInterval(temporizadorIntervalo);
+        const tiempoFinal = Date.now();
+        const tiempoTranscurrido = Math.floor((tiempoFinal - tiempoInicio) / 1000);
+        if (!tiempoAcumuladoPorNivel[nivelActual]) {
+            tiempoAcumuladoPorNivel[nivelActual] = 0;
+        }
+        tiempoAcumuladoPorNivel[nivelActual] += tiempoTranscurrido;
+    }
+}
+
+function drawSpinner(spinner) {
+    const ctx = spinner.canvas.getContext('2d');
+    const values = spinner.values;
+    const colors = spinner.colors;
+    const radius = spinner.canvas.width / 2;
+    const sliceAngle = 2 * Math.PI / values.length;
+    let startAngle = spinner.angle;
+    ctx.clearRect(0, 0, spinner.canvas.width, spinner.canvas.height);
+    for (let i = 0; i < values.length; i++) {
+        ctx.beginPath();
+        ctx.moveTo(radius, radius);
+        ctx.arc(radius, radius, radius, startAngle, startAngle + sliceAngle);
+        ctx.fillStyle = colors[i];
+        ctx.fill();
+        ctx.stroke();
+        ctx.save();
+        ctx.translate(radius, radius);
+        ctx.rotate(startAngle + sliceAngle / 2);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 16px sans-serif";
+        ctx.fillText(values[i], radius - 10, 5);
+        ctx.restore();
+        startAngle += sliceAngle;
+    }
+}
+
+function animateSpinners() {
+    for (let key in spinners) {
+        if (spinners[key].spinning) {
+            spinners[key].angle += 0.8;
+            drawSpinner(spinners[key]);
+        }
+    }
+    requestAnimationFrame(animateSpinners);
+}
+
+function getSelectedValue(spinner) {
+    const sliceAngle = 2 * Math.PI / spinner.values.length;
+    const angle = spinner.angle % (2 * Math.PI);
+    const pointerAngle = 3 * Math.PI / 2;
+    const relativeAngle = (pointerAngle - angle + 2 * Math.PI) % (2 * Math.PI);
+    const index = Math.floor(relativeAngle / sliceAngle);
+    return spinner.values[index];
+}
+
+function spin(spinnerId, callback) {
+    if (audioEnabled && audios.spinSound) {
+        playAudio('spinSound');
+    }
+    const spinner = spinners[spinnerId];
+    spinner.spinning = false;
+    const value = getSelectedValue(spinner);
+    callback(value);
+}
+
+function resetGame() {
+    selected = [];
+    spinnerOrder = [];
+    document.getElementById('result').innerHTML = '';
+    document.getElementById('reward').style.display = 'none';
+    for (let key in spinners) {
+        spinners[key].spinning = true;
+        spinners[key].angle = 0;
+        spinners[key].canvas.classList.remove('winning', 'losing');
+    }
+    clearInterval(timerInterval);
+    document.getElementById('timer').innerText = '';
+    gameLocked = false;
+    if (currentLevel !== 'practice') {
+        startTimer();
+    }
+}
+
+function handleClick(spinnerId) {
+    if (gameLocked || (currentLevel !== 'practice' && attempts >= maxAttempts) || spinnerOrder.includes(spinnerId) || spinnerOrder.length >= 2) return;
+    spinnerOrder.push(spinnerId);
+    spin(spinnerId, value => {
+        selected.push({ id: spinnerId, value: value });
+        updateResult();
+        if (spinnerOrder.length === 2) {
+            const remaining = ['A', 'B', 'C'].filter(s => !spinnerOrder.includes(s))[0];
+            spinnerOrder.push(remaining);
+            spin(remaining, value3 => {
+                selected.push({ id: remaining, value: value3 });
+                updateResult(true);
+            });
+        }
+    });
+}
+
+function updateResult(final = false) {
+    let html = '';
+    selected.forEach(sel => {
+        html += `Spinner ${sel.id} seleccionado: ${sel.value}<br>`;
+    });
+    if (final) {
+        const total = selected.reduce((sum, s) => sum + s.value, 0);
+        html += `Suma total: ${total}<br>`;
+        let points = 0;
+        const key = `${selected[0].id}-${selected[1].id}`;
+        const values = [selected[0].value, selected[1].value];
+        document.getElementById(`spinner${selected[0].id}`).classList.remove('winning', 'losing');
+        document.getElementById(`spinner${selected[1].id}`).classList.remove('winning', 'losing');
+        if (combinations[key] && combinations[key].win.some(([a, b]) => a === values[0] && b === values[1])) {
+            html += '🎉 ¡Ganaste! (Combinación favorable)<br>';
+            points = total + 5;
+            document.getElementById(`spinner${selected[0].id}`).classList.add('winning');
+            document.getElementById(`spinner${selected[1].id}`).classList.add('winning');
+            if (audioEnabled && audios.winSound) {
+                playAudio('winSound');
+            }
+        } else if (combinations[key] && combinations[key].lose.some(([a, b]) => a === values[0] && b === values[1])) {
+            html += '😢 Lejos del objetivo (Combinación desfavorable)<br>';
+            points = 0;
+            document.getElementById(`spinner${selected[0].id}`).classList.add('losing');
+            document.getElementById(`spinner${selected[1].id}`).classList.add('losing');
+        } else {
+            html += '👍 Cerca de ganar<br>';
+            points = total;
+        }
+        score += points;
+        totalScore += points;
+        attempts++;
+        intentosPorNivel[nivelActual] = attempts;
+        puntajePorNivel[nivelActual] = score;
+        html += `Puntos obtenidos: ${points}<br>`;
+        if (key === 'A-B' && combinations['A-B']) {
+            html += `<br><strong>Número de combinaciones favorables (A-B):</strong> ${combinations['A-B'].win.length}<br>`;
+        }
+        document.getElementById('scoreboard').innerHTML = `Intentos: ${attempts}/${currentLevel === 'practice' ? '∞' : maxAttempts} | Puntos acumulados en el nivel: ${score} | Puntos totales: ${totalScore}`;
+        document.getElementById('attempts').innerHTML = `Intentos: ${attempts}/${currentLevel === 'practice' ? '∞' : maxAttempts}`;
+        if (currentLevel !== 'practice' && attempts >= maxAttempts) {
+            gameLocked = true;
+            detenerTemporizador();
+            document.getElementById('stats').innerHTML = `
+                Total de intentos: ${attempts}<br>
+                Puntos acumulados en el nivel: ${score}<br>
+                Puntos totales: ${totalScore}<br>
+                Promedio por intento: ${(attempts > 0 ? score / attempts : 0).toFixed(2)}
+            `;
+            if (score >= 40) {
+                html += `<br>✅ Has alcanzado los puntos necesarios para avanzar.<br><button onclick="nextLevel()">Avanzar al siguiente nivel</button>`;
+                document.getElementById('reward').style.display = 'block';
+                updateRanking();
+            } else {
+                html += `<br>❌ No alcanzaste los puntos necesarios. Por favor, reintenta el nivel.<br><button onclick="retryLevel()">Reintentar nivel</button>`;
+            }
+            saveProgress();
+        }
+        document.getElementById('result').innerHTML = html;
+    }
+}
+
+function startGame(level) {
+    currentLevel = level;
+    nivelActual = level === 'basic' ? 1 : level === 'intermediate' ? 2 : 3;
+    maxAttempts = 3;
+    configureSpinners(level);
+    document.getElementById('levelSelector').style.display = 'none';
+    document.querySelector('.spinner-container').style.display = 'flex';
+    document.querySelector('button[onclick="resetGame()"]').style.display = 'inline-block';
+    document.getElementById('resetToStart').style.display = 'inline-block';
+    document.getElementById('instructions').style.display = 'block';
+    document.getElementById('levelDescription').innerText = `Nivel seleccionado: ${level}`;
+    document.getElementById('levelDescription').classList.add('visible');
+    showHint(level);
+    score = 0;
+    attempts = 0;
+    intentosPorNivel[nivelActual] = 0;
+    puntajePorNivel[nivelActual] = 0;
+    gameLocked = false;
+    resetGame();
+    iniciarTemporizador();
+    document.getElementById('scoreboard').innerHTML = `Intentos: ${attempts}/${maxAttempts} | Puntos acumulados en el nivel: ${score} | Puntos totales: ${totalScore}`;
+    document.getElementById('attempts').innerHTML = `Intentos: ${attempts}/${maxAttempts}`;
+    document.getElementById('stats').innerHTML = '';
+    // Cambiar música: detener todas, reproducir la del nivel
+    stopAllMusic();
+    playAudio(level + 'Music');
+}
+
+function startPracticeMode() {
+    currentLevel = 'practice';
+    nivelActual = 0;
+    maxAttempts = Infinity;
+    configureSpinners('intermediate');
+    document.getElementById('levelSelector').style.display = 'none';
+    document.querySelector('.spinner-container').style.display = 'flex';
+    document.querySelector('button[onclick="resetGame()"]').style.display = 'inline-block';
+    document.getElementById('resetToStart').style.display = 'inline-block';
+    document.getElementById('instructions').style.display = 'block';
+    document.getElementById('levelDescription').innerText = 'Modo Práctica: Sin límites de tiempo ni intentos';
+    document.getElementById('levelDescription').classList.add('visible');
+    showHint('practice');
+    score = 0;
+    attempts = 0;
+    gameLocked = false;
+    resetGame();
+    document.getElementById('scoreboard').innerHTML = `Intentos: ${attempts}/∞ | Puntos acumulados: ${score}`;
+    document.getElementById('attempts').innerHTML = `Intentos: ${attempts}/∞`;
+    document.getElementById('stats').innerHTML = '';
+    document.getElementById('timer').innerText = '';
+    // Cambiar música: detener todas, reproducir práctica
+    stopAllMusic();
+    playAudio('practiceMusic');
+}
+
+function nextLevel() {
+    if (currentLevel === 'basic') {
+        startGame('intermediate');
+    } else if (currentLevel === 'intermediate') {
+        startGame('advanced');
+    } else {
+        stopAllMusic();
+        if (totalScore >= CONFETTI_SCORE_THRESHOLD) {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+            alert(`🎉 ¡Has completado todos los niveles y alcanzado ${totalScore} puntos, superando el umbral de ${CONFETTI_SCORE_THRESHOLD} puntos! ¡Gran trabajo!`);
+        } else {
+            alert(`🎉 ¡Has completado todos los niveles con ${totalScore} puntos! No alcanzaste los ${CONFETTI_SCORE_THRESHOLD} puntos necesarios para el premio final.`);
+        }
+        localStorage.clear();
+        location.reload();
+    }
+}
+
+function retryLevel() {
+    totalScore -= score; // Restar los puntos del nivel fallido
+    score = 0;
+    attempts = 0;
+    intentosPorNivel[nivelActual] = 0;
+    puntajePorNivel[nivelActual] = 0;
+    resetGame();
+    document.getElementById('scoreboard').innerHTML = `Intentos: ${attempts}/${maxAttempts} | Puntos acumulados en el nivel: ${score} | Puntos totales: ${totalScore}`;
+    document.getElementById('attempts').innerHTML = `Intentos: ${attempts}/${maxAttempts}`;
+    document.getElementById('stats').innerHTML = '';
+    document.getElementById('result').innerHTML = '';
+    iniciarTemporizador();
+    // Mantener música del nivel
+    playAudio(currentLevel + 'Music');
+}
+
+function resetToStart() {
+    currentLevel = null;
+    nivelActual = 1;
+    score = 0;
+    totalScore = 0;
+    attempts = 0;
+    intentosPorNivel = {};
+    puntajePorNivel = {};
+    tiempoAcumuladoPorNivel = {};
+    document.getElementById('levelSelector').style.display = 'block';
+    document.querySelector('.spinner-container').style.display = 'none';
+    document.querySelector('button[onclick="resetGame()"]').style.display = 'none';
+    document.getElementById('resetToStart').style.display = 'none';
+    document.getElementById('instructions').style.display = 'none';
+    document.getElementById('result').innerHTML = '';
+    document.getElementById('stats').innerHTML = '';
+    document.getElementById('attempts').innerHTML = `Intentos: 0`;
+    document.getElementById('scoreboard').innerHTML = `Intentos: 0 | Puntos acumulados en el nivel: 0 | Puntos totales: 0`;
+    document.getElementById('reward').style.display = 'none';
+    // Cambiar música: detener todas, reproducir menú
+    stopAllMusic();
+    playAudio('menuMusic');
+}
+
+function toggleDarkMode() {
+    const body = document.body;
+    body.classList.toggle('dark-mode');
+    const isDarkMode = body.classList.contains('dark-mode');
+    localStorage.setItem('darkMode', isDarkMode ? 'enabled' : 'disabled');
+}
+
+function loadDarkMode() {
+    const darkMode = localStorage.getItem('darkMode');
+    if (darkMode === 'enabled') {
+        document.body.classList.add('dark-mode');
+    }
+    checkAudioFiles();
+    console.log("Página cargada, esperando interacción para audio");
+}
+
+function startTimer() {
+    timeLeft = currentLevel === 'basic' ? 30 : currentLevel === 'intermediate' ? 40 : 50;
+    document.getElementById('timer').innerText = `Tiempo restante: ${timeLeft}s`;
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer').innerText = `Tiempo restante: ${timeLeft}s`;
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            alert("⏰ Tiempo agotado");
+            retryLevel();
+        }
+    }, 1000);
+}
+
+function saveProgress() {
+    localStorage.setItem('level', currentLevel);
+    localStorage.setItem('score', score);
+    localStorage.setItem('totalScore', totalScore);
+    localStorage.setItem('nivelActual', nivelActual);
+    localStorage.setItem('intentosPorNivel', JSON.stringify(intentosPorNivel));
+    localStorage.setItem('puntajePorNivel', JSON.stringify(puntajePorNivel));
+}
+
+function updateRanking() {
+    let rankings = JSON.parse(localStorage.getItem('rankings') || '[]');
+    rankings.push(totalScore);
+    rankings.sort((a, b) => b - a);
+    rankings = rankings.slice(0, 5);
+    localStorage.setItem('rankings', JSON.stringify(rankings));
+    document.getElementById('stats').innerHTML += `<br><strong>Top 5:</strong><br>${rankings.join('<br>')}`;
+}
+
+// Manejador para desbloquear audio tras interacción
+document.addEventListener('click', function unlockAudio() {
+    if (!audioEnabled) {
+        audioEnabled = true;
+        for (let id in audios) {
+            audios[id].muted = false;
+        }
+        playAudio('menuMusic');
+        document.querySelector('button[onclick="toggleAudio()"]').textContent = '🔇 Silenciar Sonido';
+        console.log("Audio desbloqueado y menuMusic iniciado tras interacción");
+        document.removeEventListener('click', unlockAudio);
+    }
+}, { once: true });
+
+for (let key in spinners) {
+    spinners[key].canvas.addEventListener('click', () => handleClick(key));
+}
+
+document.getElementById('scoreboard').innerHTML = `Intentos: 0 | Puntos acumulados en el nivel: 0 | Puntos totales: 0`;
+document.getElementById('attempts').innerHTML = `Intentos: 0`;
+document.getElementById('stats').innerHTML = '';
+document.getElementById('result').innerHTML = '';
+document.getElementById('timer').innerText = '';
+document.getElementById('reward').style.display = 'none';
+
+document.addEventListener('DOMContentLoaded', loadDarkMode);
+
+animateSpinners();

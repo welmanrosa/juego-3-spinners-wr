@@ -1,0 +1,195 @@
+/* Importar fuente Orbitron para un look de juego */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+/* Estilos generales */
+body {
+    font-family: 'Orbitron', Impact, sans-serif; /* Fuente temática de juego */
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5; /* Fondo blanco suave */
+    color: #3498db; /* Azul vibrante para texto principal */
+    transition: background-color 0.3s, color 0.3s; /* Transición suave */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+h1, #levelSelector h2 {
+    color: #39ff14; /* Verde neón brillante para título y "Nivel de dificultad" */
+    font-weight: 700; /* Peso más grueso */
+    text-shadow: 0 0 10px #39ff14, 2px 2px 4px rgba(0, 0, 0, 0.5); /* Resplandor neón */
+}
+
+h2:not(#levelSelector h2) {
+    color: #27ae60; /* Verde más suave para otros h2 */
+    font-weight: 700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+#levelSelector {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#levelSelector button {
+    margin: 10px;
+    padding: 12px 24px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    background-color: #2ecc71; /* Verde esmeralda para botones */
+    color: #222; /* Texto oscuro para mejor contraste */
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* Sombra para profundidad */
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+#levelSelector button:hover {
+    background-color: #27ae60; /* Verde más suave al hover */
+    transform: scale(1.05); /* Efecto de agrandamiento */
+}
+
+.spinner-container {
+    display: none;
+    justify-content: center;
+    gap: 25px;
+    margin-bottom: 25px;
+    background: rgba(0, 0, 0, 0.05); /* Fondo sutil para contenedor */
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+canvas {
+    border: 3px solid #27ae60; /* Borde verde más suave */
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: box-shadow 0.3s, transform 0.2s;
+}
+
+canvas:hover {
+    box-shadow: 0 0 15px #39ff14; /* Resplandor neón al hover */
+    transform: scale(1.05);
+}
+
+.winning {
+    border: 5px solid #27ae60 !important; /* Verde más suave para combos ganadores */
+    box-shadow: 0 0 10px #27ae60;
+}
+
+.losing {
+    border: 5px solid #e74c3c !important; /* Rojo intenso para derrota */
+    box-shadow: 0 0 10px #e74c3c;
+}
+
+#instructions, #result, #stats {
+    margin-top: 25px;
+    text-align: center;
+    max-width: 650px;
+    color: #3498db; /* Azul vibrante para texto */
+    font-size: 18px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+#levelDescription {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 25px;
+    color: #27ae60; /* Verde más suave */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+#scoreboard, #attempts, #timer {
+    margin-top: 15px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #3498db; /* Azul vibrante */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+#reward {
+    margin-top: 25px;
+    animation: pulse 2s infinite; /* Animación de pulso para el GIF */
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); } /* Aumentado para más énfasis */
+    100% { transform: scale(1); }
+}
+
+button {
+    margin: 10px;
+    padding: 12px 24px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    background-color: #2ecc71; /* Verde esmeralda */
+    color: #222; /* Texto oscuro para mejor contraste */
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+button:hover {
+    background-color: #27ae60; /* Verde más suave */
+    transform: scale(1.05);
+}
+
+#credits {
+    margin-top: 25px;
+    font-size: 16px;
+    color: #7f8c8d; /* Gris azulado */
+    text-align: center;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Modo oscuro */
+body.dark-mode {
+    background-color: #222; /* Fondo oscuro */
+    color: #00b7eb; /* Cian brillante para texto */
+}
+
+body.dark-mode h1, body.dark-mode #levelSelector h2, body.dark-mode h2:not(#levelSelector h2), body.dark-mode #levelDescription {
+    color: #39ff14; /* Verde neón brillante para títulos y descripción */
+    text-shadow: 0 0 10px #39ff14, 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode #instructions, body.dark-mode #result, body.dark-mode #stats {
+    color: #00b7eb; /* Cian brillante */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode #scoreboard, body.dark-mode #attempts, body.dark-mode #timer {
+    color: #00b7eb; /* Cian brillante */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode canvas {
+    border: 3px solid #39ff14; /* Verde neón para bordes */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode canvas:hover {
+    box-shadow: 0 0 15px #39ff14;
+    transform: scale(1.05);
+}
+
+body.dark-mode .winning {
+    border: 5px solid #39ff14 !important; /* Verde neón para combos ganadores */
+    box-shadow: 0 0 10px #39ff14;
+}
+
+body.dark-mode .losing {
+    border: 5px solid #e74c3c !important; /* Rojo intenso */
+    box-shadow: 0 0 10px #e74c3c;
+}
+
+body.dark-mode #credits {
+    color: #95a5a6; /* Gris claro */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
